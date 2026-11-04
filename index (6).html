@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#0f766e">
+<title>Gastos</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" type="image/png" href="icon-192.png">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<style>
+:root{--bg:#eef2f3;--card:#fff;--fg:#10222b;--mute:#5d7078;--line:#d3dde1;--acc:#0f766e;--neg:#c2410c}
+@media (prefers-color-scheme:dark){:root{--bg:#0e1a1f;--card:#16262d;--fg:#e6f0f2;--mute:#8ba3ab;--line:#264049;--acc:#2dd4bf;--neg:#fb923c}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--fg);font:16px/1.4 system-ui,sans-serif;padding-bottom:84px}
+main{max-width:560px;margin:0 auto;padding:16px}
+h1{font-size:26px;margin:6px 0 14px}
+h2{font-size:17px;margin:0 0 10px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px;margin-bottom:12px}
+label{display:block;font-size:13px;color:var(--mute);margin:10px 0 4px;font-weight:600}
+input[type=text],input[type=date],input[type=time],input[type=month]{width:100%;padding:12px;border:1px solid var(--line);border-radius:10px;background:var(--bg);color:var(--fg);font-size:16px}
+.row{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+button{font:inherit;cursor:pointer}
+.main{width:100%;margin-top:14px;padding:13px;border:0;border-radius:12px;background:var(--acc);color:var(--card);font-weight:700}
+.ghost{width:100%;margin-top:10px;padding:12px;border:1px solid var(--line);border-radius:12px;background:transparent;color:var(--fg);font-weight:600}
+nav{position:fixed;left:0;right:0;bottom:0;display:flex;background:var(--card);border-top:1px solid var(--line)}
+nav button{flex:1;padding:12px 4px 16px;border:0;background:transparent;color:var(--mute);font-size:12px;font-weight:600}
+nav button i{display:block;font-style:normal;font-size:20px}
+nav button.on{color:var(--acc)}
+.view{display:none}.view.on{display:block}
+.tot{font-size:28px;font-weight:800;margin:2px 0 0}
+.g{display:flex;gap:10px;align-items:center;padding:10px 0;border-bottom:1px solid var(--line)}
+.g:last-child{border-bottom:0}
+.g .i{flex:1;min-width:0}.g b{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.g small{color:var(--mute)}
+.g img{width:44px;height:44px;object-fit:cover;border-radius:8px}
+.x{border:0;background:transparent;color:var(--neg);font-size:18px}
+.pv{max-width:100%;max-height:200px;border-radius:10px;margin-top:8px;display:none}
+.empty,.note{color:var(--mute);text-align:center;font-size:14px;padding:12px}
+#lb{position:fixed;inset:0;background:#000d;display:none;align-items:center;justify-content:center;z-index:9}
+#lb img{max-width:96%;max-height:92%}
+.ck{display:flex;gap:8px;align-items:center;margin-top:12px;font-size:15px}
+</style>
+</head>
+<body>
+<main>
+<h1>Gastos</h1>
+
+<section class="view on" id="v-add">
+  <div class="card">
+    <h2>Añadir gasto</h2>
+    <div class="row">
+      <div><label>Fecha</label><input type="date" id="a-f"></div>
+      <div><label>Hora</label><input type="time" id="a-h"></div>
+    </div>
+    <label>Sitio</label><input type="text" id="a-s" placeholder="Ej. Mercadona">
+    <label>Precio (€)</label><input type="text" id="a-p" inputmode="decimal" placeholder="0,00">
+    <label>Foto del ticket</label>
+    <input type="file" id="a-i" accept="image/*">
+    <img class="pv" id="a-pv" alt="">
+    <button class="main" id="a-ok">Guardar gasto</button>
+  </div>
+</section>
+
+<section class="view" id="v-list">
+  <div class="card">
+    <label style="margin-top:0">Mes</label><input type="month" id="l-m">
+    <div class="tot" id="l-t">0,00 €</div><div class="note" style="padding:0;text-align:left" id="l-n"></div>
+  </div>
+  <div class="card" id="l-l"></div>
+</section>
+
+<section class="view" id="v-doc">
+  <div class="card">
+    <h2>Descargar documento</h2>
+    <div class="row">
+      <div><label>Desde</label><input type="date" id="d-1"></div>
+      <div><label>Hasta</label><input type="date" id="d-2"></div>
+    </div>
+    <label class="ck"><input type="checkbox" id="d-f"> Incluir las fotos de los tickets</label>
+    <div class="note" id="d-n"></div>
+    <button class="main" id="d-ok">Descargar PDF</button>
+  </div>
+  <div class="card">
+    <h2>Copia de seguridad</h2>
+    <p class="note" style="text-align:left;padding:0">Tus gastos se guardan solo en este móvil. Guarda una copia por si borras los datos del navegador.</p>
+    <button class="ghost" id="b-exp">Descargar copia</button>
+    <button class="ghost" id="b-imp">Restaurar desde una copia</button>
+    <input type="file" id="b-file" accept="application/json" hidden>
+  </div>
+</section>
+</main>
+
+<div id="lb"><img alt=""></div>
+
+<nav>
+  <button data-v="add" class="on"><i>➕</i>Añadir</button>
+  <button data-v="list"><i>📅</i>Gastos</button>
+  <button data-v="doc"><i>📄</i>Documento</button>
+</nav>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script>if("serviceWorker"in navigator)addEventListener("load",function(){navigator.serviceWorker.register("sw.js")});</script>
+<script>
+var $=function(s){return document.querySelector(s)};
+var eur=function(n){return new Intl.NumberFormat("es-ES",{minimumFractionDigits:2,maximumFractionDigits:2}).format(n)+" €"};
+var fd=function(d){var p=d.split("-");return p[2]+"/"+p[1]+"/"+p[0]};
+var esc=function(s){return String(s).replace(/[&<>"']/g,function(c){return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]})};
+var num=function(v){return parseFloat(String(v).replace(",","."))||0};
+var hoy=function(){return new Date().toLocaleDateString("sv-SE")};
+var ahora=function(){return new Date().toTimeString().slice(0,5)};
+
+/* Base de datos local (IndexedDB) */
+var DB=new Promise(function(res,rej){
+  var r=indexedDB.open("gastos-db",1);
+  r.onupgradeneeded=function(){r.result.createObjectStore("g",{keyPath:"id",autoIncrement:true})};
+  r.onsuccess=function(){res(r.result)};r.onerror=function(){rej(r.error)};
+});
+function tx(mode,fn){return DB.then(function(db){return new Promise(function(res,rej){
+  var t=db.transaction("g",mode),r=fn(t.objectStore("g"));
+  t.oncomplete=function(){res(r&&r.result)};t.onerror=function(){rej(t.error)};
+})})}
+var all=function(){return tx("readonly",function(s){return s.getAll()})};
+var add=function(g){return tx("readwrite",function(s){return s.add(g)})};
+var del=function(id){return tx("readwrite",function(s){return s.delete(id)})};
+
+function comp(f){
+  return createImageBitmap(f).then(function(b){
+    var k=Math.min(1,1400/Math.max(b.width,b.height)),c=document.createElement("canvas");
+    c.width=Math.round(b.width*k);c.height=Math.round(b.height*k);
+    c.getContext("2d").drawImage(b,0,0,c.width,c.height);
+    return new Promise(function(r){c.toBlob(r,"image/jpeg",.72)});
+  }).catch(function(){return f});
+}
+var b2u=function(b){return new Promise(function(r){var f=new FileReader();f.onload=function(){r(f.result)};f.readAsDataURL(b)})};
+function dl(blob,name){var a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download=name;a.click();setTimeout(function(){URL.revokeObjectURL(a.href)},5000)}
+
+/* Pestañas */
+document.querySelectorAll("nav button").forEach(function(b){b.onclick=function(){
+  document.querySelectorAll("nav button").forEach(function(x){x.classList.toggle("on",x===b)});
+  document.querySelectorAll(".view").forEach(function(v){v.classList.toggle("on",v.id==="v-"+b.dataset.v)});
+  if(b.dataset.v==="list")pintar();if(b.dataset.v==="doc")resumenDoc();
+}});
+
+/* Añadir */
+function limpiar(){$("#a-f").value=hoy();$("#a-h").value=ahora();$("#a-s").value="";$("#a-p").value="";$("#a-i").value="";$("#a-pv").style.display="none"}
+$("#a-i").onchange=function(){var f=this.files[0],p=$("#a-pv");if(f){p.src=URL.createObjectURL(f);p.style.display="block"}else p.style.display="none"};
+$("#a-ok").onclick=async function(){
+  var s=$("#a-s").value.trim(),p=num($("#a-p").value),f=$("#a-f").value,h=$("#a-h").value;
+  if(!f||!s||!p){alert("Rellena fecha, sitio y precio.");return}
+  var file=$("#a-i").files[0],foto=file?await comp(file):null;
+  await add({fecha:f,hora:h,sitio:s,precio:p,foto:foto});
+  limpiar();alert("Gasto guardado");
+};
+
+/* Ver por mes */
+async function pintar(){
+  var m=$("#l-m").value,L=(await all()).filter(function(g){return g.fecha.slice(0,7)===m});
+  L.sort(function(a,b){return (b.fecha+b.hora)>(a.fecha+a.hora)?1:-1});
+  var t=L.reduce(function(a,g){return a+g.precio},0);
+  $("#l-t").textContent=eur(t);$("#l-n").textContent=L.length+(L.length===1?" gasto":" gastos")+" este mes";
+  $("#l-l").innerHTML=L.length?L.map(function(g){
+    var im=g.foto?'<img data-u="'+URL.createObjectURL(g.foto)+'" src="'+URL.createObjectURL(g.foto)+'" alt="Ticket">':"";
+    return '<div class="g">'+im+'<div class="i"><b>'+esc(g.sitio)+'</b><small>'+fd(g.fecha)+' · '+esc(g.hora||"")+'</small></div><b style="flex:none">'+eur(g.precio)+'</b><button class="x" data-del="'+g.id+'">🗑</button></div>';
+  }).join(""):'<div class="empty">No hay gastos en este mes.</div>';
+}
+$("#l-m").onchange=pintar;
+$("#l-l").onclick=async function(e){
+  var t=e.target;
+  if(t.dataset.del&&confirm("¿Eliminar este gasto?")){await del(+t.dataset.del);pintar()}
+  else if(t.tagName==="IMG"){$("#lb img").src=t.dataset.u;$("#lb").style.display="flex"}
+};
+$("#lb").onclick=function(){this.style.display="none"};
+
+/* Documento PDF */
+async function rango(){
+  var d=$("#d-1").value,h=$("#d-2").value;
+  if(!d||!h||d>h)return null;
+  var L=(await all()).filter(function(g){return g.fecha>=d&&g.fecha<=h});
+  L.sort(function(a,b){return (a.fecha+a.hora)>(b.fecha+b.hora)?1:-1});
+  return {d:d,h:h,L:L};
+}
+async function resumenDoc(){
+  var r=await rango();
+  $("#d-n").textContent=r?r.L.length+" gastos · total "+eur(r.L.reduce(function(a,g){return a+g.precio},0)):"Elige las fechas.";
+}
+$("#d-1").onchange=$("#d-2").onchange=resumenDoc;
+$("#d-ok").onclick=async function(){
+  if(!window.jspdf){alert("No se pudo cargar el generador de PDF. Comprueba tu conexión.");return}
+  var r=await rango();
+  if(!r){alert("Elige bien las fechas (desde / hasta).");return}
+  if(!r.L.length){alert("No hay gastos en esas fechas.");return}
+  var doc=new window.jspdf.jsPDF(),y=20;
+  doc.setFontSize(16);doc.text("Registro de gastos",14,y);y+=7;
+  doc.setFontSize(10);doc.text("Del "+fd(r.d)+" al "+fd(r.h),14,y);y+=10;
+  doc.setFont("helvetica","bold");doc.text("Fecha",14,y);doc.text("Hora",42,y);doc.text("Sitio",62,y);doc.text("Importe",196,y,{align:"right"});
+  doc.line(14,y+2,196,y+2);y+=8;doc.setFont("helvetica","normal");
+  var tot=0;
+  r.L.forEach(function(g){
+    if(y>280){doc.addPage();y=20}
+    doc.text(fd(g.fecha),14,y);doc.text(g.hora||"",42,y);
+    doc.text(doc.splitTextToSize(g.sitio,105)[0],62,y);
+    doc.text(eur(g.precio).replace("€","EUR"),196,y,{align:"right"});
+    tot+=g.precio;y+=7;
+  });
+  doc.line(14,y-3,196,y-3);y+=4;doc.setFont("helvetica","bold");
+  doc.text("TOTAL ("+r.L.length+" gastos)",14,y);doc.text(eur(tot).replace("€","EUR"),196,y,{align:"right"});
+  if($("#d-f").checked){
+    for(var i=0;i<r.L.length;i++){
+      var g=r.L[i];if(!g.foto)continue;
+      var u=await b2u(g.foto),im=await new Promise(function(res){var x=new Image();x.onload=function(){res(x)};x.src=u});
+      var k=Math.min(182/im.width,255/im.height);
+      doc.addPage();doc.setFont("helvetica","normal");doc.setFontSize(10);
+      doc.text(fd(g.fecha)+" "+(g.hora||"")+" · "+doc.splitTextToSize(g.sitio,100)[0]+" · "+eur(g.precio).replace("€","EUR"),14,15);
+      doc.addImage(u,"JPEG",14,22,im.width*k,im.height*k);
+    }
+  }
+  doc.save("gastos_"+r.d+"_a_"+r.h+".pdf");
+};
+
+/* Copia de seguridad */
+$("#b-exp").onclick=async function(){
+  var L=await all();
+  for(var i=0;i<L.length;i++){if(L[i].foto)L[i].foto=await b2u(L[i].foto);delete L[i].id}
+  dl(new Blob([JSON.stringify(L)],{type:"application/json"}),"copia_gastos_"+hoy()+".json");
+};
+$("#b-imp").onclick=function(){$("#b-file").click()};
+$("#b-file").onchange=async function(){
+  var f=this.files[0];if(!f)return;
+  try{
+    var L=JSON.parse(await f.text());
+    if(!confirm("Se añadirán "+L.length+" gastos a los que ya tienes. ¿Continuar?"))return;
+    for(var i=0;i<L.length;i++){var g=L[i];if(g.foto)g.foto=await (await fetch(g.foto)).blob();await add(g)}
+    alert("Copia restaurada");
+  }catch(e){alert("El archivo no es una copia válida.")}
+  this.value="";
+};
+
+limpiar();
+$("#l-m").value=hoy().slice(0,7);
+$("#d-1").value=hoy().slice(0,7)+"-01";$("#d-2").value=hoy();
+</script>
+</body>
+</html>
