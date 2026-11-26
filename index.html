@@ -35,7 +35,12 @@ input,select{padding:10px;border:1px solid var(--bd);border-radius:8px;backgroun
 <aside id="sb"><div class="logo"><img src="icon-192.png" alt="Logo"><b>Mi viaje</b></div><nav id="nav"></nav>
 <button class="tg" onclick="sb.classList.toggle('min')" title="Extender / contraer">⇔</button></aside>
 <main id="m"></main>
-<script>
+<script type="module">
+import {firebaseConfig} from './firebase-config.js';
+import {initializeApp} from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js';
+import {initializeFirestore,persistentLocalCache,collection,doc,addDoc,setDoc,deleteDoc,onSnapshot} from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js';
+const db=initializeFirestore(initializeApp(firebaseConfig),{localCache:persistentLocalCache()});
+const col=collection(db,'cuentas','viaje','gastos'),bud=doc(db,'cuentas','viaje','gastos','_presupuesto');
 const C={
 presupuesto:{n:'Presupuesto',i:'💰'},
 comida:{n:'Comida',i:'🍽️',f:[['lugar','Lugar','text'],['dia','Día','date'],['precio','Precio (€)','number']]},
@@ -44,8 +49,12 @@ entradas:{n:'Entradas',i:'🎟️',f:[['sitio','Sitio','text'],['dia','Día','da
 hoteles:{n:'Hoteles',i:'🏨',f:[['sitio','Sitio','text'],['dia','Día','date'],['precio','Precio (€)','number']]},
 extras:{n:'Extras',i:'✨',f:[['tipo','Tipo (escríbelo)','text'],['sitio','Sitio','text'],['precio','Precio (€)','number']]}};
 let D={budget:0,items:[]},cur='presupuesto';
-try{const s=localStorage.getItem('viaje');if(s)D=JSON.parse(s)}catch(e){}
-const save=()=>{try{localStorage.setItem('viaje',JSON.stringify(D))}catch(e){}};
+function keep(){const f=document.querySelector('main form'),v={};let a=document.activeElement&&document.activeElement.name;
+if(f)new FormData(f).forEach((x,k)=>v[k]=x);render();const g=document.querySelector('main form');
+if(g){for(const k in v){const e=g.elements[k];if(e)e.value=v[k]}if(a&&g.elements[a])g.elements[a].focus()}}
+onSnapshot(col,s=>{D.items=[];s.forEach(d=>{const x=d.data();if(d.id=='_presupuesto')D.budget=+x.budget||0;else D.items.push({...x,id:d.id})});
+D.items.sort((a,b)=>(a.t||0)-(b.t||0));keep()});
+window.setBudget=v=>setDoc(bud,{budget:+v||0});
 const eur=n=>(+n||0).toLocaleString('es-ES',{style:'currency',currency:'EUR'});
 const tot=k=>D.items.filter(x=>!k||x.c===k).reduce((a,x)=>a+x.precio,0);
 const COL={comida:'#f59e0b',transporte:'#3b82f6',entradas:'#a855f7',hoteles:'#ec4899',extras:'#14b8a6',disp:'#94a3b8'};
@@ -60,7 +69,7 @@ function nav(){document.getElementById('nav').innerHTML=Object.keys(C).map(k=>`<
 function go(k){cur=k;sb.classList.remove('open');render()}
 function render(){nav();const m=document.getElementById('m');
 if(cur=='presupuesto'){const t=tot(),b=D.budget,r=b-t,p=b?Math.min(100,t/b*100):0;
-m.innerHTML=`<h1>💰 Presupuesto</h1><div class="card"><label>Presupuesto total (€)<input type="number" min="0" step="any" value="${b||''}" onchange="D.budget=+this.value||0;save();render()"></label>
+m.innerHTML=`<h1>💰 Presupuesto</h1><div class="card"><label>Presupuesto total (€)<input type="number" min="0" step="any" value="${b||''}" onchange="setBudget(this.value)"></label>
 <div class="bar"><div style="width:${p}%;background:${r<0?'var(--bad)':'var(--ok)'}"></div></div>
 <div>Gastado: <b>${eur(t)}</b></div><div class="big ${r<0?'bad':'ok'}">${eur(r)}</div><small>${r<0?'Te has pasado del presupuesto':'Te queda disponible'}</small></div>
 <div class="card"><b>Distribución</b>${donut()}</div>
@@ -68,8 +77,9 @@ m.innerHTML=`<h1>💰 Presupuesto</h1><div class="card"><label>Presupuesto total
 const c=C[cur],its=D.items.map((x,i)=>[x,i]).filter(([x])=>x.c==cur);
 m.innerHTML=`<h1>${c.i} ${c.n}</h1><div class="card"><form onsubmit="add(event)">${c.f.map(([k,l,t])=>`<label>${l}${Array.isArray(t)?`<select name="${k}">${t.map(o=>`<option>${o}</option>`).join('')}</select>`:`<input name="${k}" type="${t}" required ${t=='number'?'min="0" step="any"':''}>`}</label>`).join('')}<button class="btn">Añadir</button></form></div>
 <div class="card"><div class="row"><b>Total ${c.n}</b><b>${eur(tot(cur))}</b></div>${its.length?its.map(([x,i])=>`<div class="row"><div>${c.f.filter(f=>f[0]!='precio').map(f=>x[f[0]]).filter(Boolean).join(' · ')}<small>${eur(x.precio)}</small></div><button onclick="del(${i})">🗑</button></div>`).join(''):'<div class="emp">Aún no hay gastos</div>'}</div>`}
-function add(e){e.preventDefault();const o={c:cur};new FormData(e.target).forEach((v,k)=>o[k]=v);o.precio=+o.precio;D.items.push(o);save();render()}
-function del(i){D.items.splice(i,1);save();render()}
+window.add=function(e){e.preventDefault();const o={c:cur,t:Date.now()};new FormData(e.target).forEach((v,k)=>o[k]=v);o.precio=+o.precio;e.target.reset();addDoc(col,o)};
+window.del=i=>{if(confirm('¿Borrar este gasto?'))deleteDoc(doc(db,'cuentas','viaje','gastos',D.items[i].id))};
+window.go=go;
 render();
 if('serviceWorker' in navigator)navigator.serviceWorker.register('sw.js').catch(()=>{});
 </script></body></html>
